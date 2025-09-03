@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ResolveIt Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; margin:0; padding:0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#f5f7fb; color:#1f2937; }
+    header { background:#2c3e50; color:#fff; padding:18px 20px; box-shadow:0 2px 8px rgba(0,0,0,.15); text-align:center; }
+    header h1 { margin:0; font-size:22px; letter-spacing:.3px; }
+
+    main { max-width:1200px; margin:30px auto; padding:0 16px; }
+
+    .toolbar { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; align-items:center; }
+    .toolbar input, .toolbar select {
+      height:38px; padding:0 12px; border:1px solid #ccc; border-radius:6px; font-size:14px; background:#fff;
+    }
+    .toolbar input:focus, .toolbar select:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.15); outline:none; }
+    .refresh-btn {
+      padding:9px 14px; border:none; background:#2563eb; color:#fff; border-radius:6px; cursor:pointer; font-weight:600;
+    }
+    .refresh-btn:hover { filter:brightness(1.05); }
+
+    .table-wrap { overflow:auto; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 2px 10px rgba(17,24,39,.05); }
+    table { width:100%; border-collapse:collapse; min-width:900px; }
+    thead th { background:#34495e; color:#fff; text-align:left; padding:12px; font-weight:600; position:sticky; top:0; }
+    tbody td { padding:12px; border-top:1px solid #f3f4f6; vertical-align:top; }
+
+    .badge { padding:4px 8px; border-radius:999px; font-size:12px; display:inline-block; font-weight:600; }
+    .Submitted { background:#e0f2fe; color:#075985; }
+    .Pending { background:#fef3c7; color:#92400e; }
+    .Under\.Review { background:#ede9fe; color:#5b21b6; }
+    .In\.Progress { background:#d1fae5; color:#065f46; }
+    .Resolved { background:#dcfce7; color:#14532d; }
+    .Rejected { background:#fee2e2; color:#b91c1c; }
+    .Closed { background:#f3f4f6; color:#111827; }
+
+    .row-actions { display:flex; gap:8px; align-items:center; }
+    .save-btn {
+      padding:7px 12px; border:none; border-radius:6px; background:#16a34a; color:#fff; cursor:pointer; font-weight:600; font-size:13px;
+    }
+    .save-btn:hover { filter:brightness(1.05); }
+
+    .id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color:#6b7280; font-size:12px; }
+    .empty { padding:24px; text-align:center; color:#6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ResolveIt — Admin Panel</h1>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <input id="searchEmail" type="email" placeholder="Search by user email…" />
+      <select id="statusFilter">
+        <option value="">All Statuses</option>
+        <option>Submitted</option>
+        <option>Pending</option>
+        <option>Under Review</option>
+        <option>In Progress</option>
+        <option>Resolved</option>
+        <option>Rejected</option>
+        <option>Closed</option>
+      </select>
+      <button class="refresh-btn" id="refreshBtn">Refresh</button>
+      <span id="meta" style="color:#6b7280; font-size:14px;"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:150px;">Date</th>
+            <th style="width:220px;">User</th>
+            <th style="width:150px;">Category</th>
+            <th>Description</th>
+            <th style="width:120px;">Status</th>
+            <th style="width:200px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const API = "http://localhost:5001/api/complaints";
+
+    const tbody = document.getElementById("tbody");
+    const statusFilter = document.getElementById("statusFilter");
+    const searchEmail = document.getElementById("searchEmail");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const meta = document.getElementById("meta");
+
+    const STATUS_OPTIONS = [
+      "Submitted",
+      "Pending",
+      "Under Review",
+      "In Progress",
+      "Resolved",
+      "Rejected",
+      "Closed",
+    ];
+
+    let allComplaints = [];
+
+    refreshBtn.addEventListener("click", load);
+    statusFilter.addEventListener("change", render);
+    searchEmail.addEventListener("input", render);
+
+    async function load() {
+      try {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">Loading…</td></tr>`;
+        const res = await fetch(API);
+        const json = await res.json();
+        const data = Array.isArray(json) ? json : (json.data || []);
+        allComplaints = data.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+        meta.textContent = `Total: ${allComplaints.length}`;
+        render();
+      } catch (e) {
+        console.error(e);
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">Failed to load complaints</td></tr>`;
+      }
+    }
+
+    function render() {
+      const fStatus = statusFilter.value.trim();
+      const fEmail = searchEmail.value.trim().toLowerCase();
+
+      const rows = allComplaints.filter(c => {
+        const okStatus = !fStatus || c.status === fStatus;
+        const okEmail = !fEmail || (c.email || "").toLowerCase().includes(fEmail);
+        return okStatus && okEmail;
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">No complaints found</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(c => rowHTML(c)).join("");
+      rows.forEach(c => {
+        const sel = document.getElementById(`status-${c._id}`);
+        const btn = document.getElementById(`save-${c._id}`);
+        btn.addEventListener("click", () => updateStatus(c._id, sel.value));
+      });
+    }
+
+    function rowHTML(c) {
+      const created = c.createdAt ? new Date(c.createdAt) : null;
+      const dateStr = created ? created.toLocaleString() : "-";
+      const safeStatusClass = (c.status || "Pending").replace(/\s/g, ".");
+      return `
+        <tr>
+          <td>
+            <div>${dateStr}</div>
+            <div class="id">${c._id || ""}</div>
+          </td>
+          <td>
+            <div><strong>${escapeHTML(c.name || "-")}</strong></div>
+            <div class="id">${escapeHTML(c.email || "-")}</div>
+          </td>
+          <td>${escapeHTML(c.category || "-")}</td>
+          <td>${escapeHTML(c.description || "-")}</td>
+          <td><span class="badge ${safeStatusClass}">${escapeHTML(c.status || "Pending")}</span></td>
+          <td class="row-actions">
+            <select id="status-${c._id}">
+              ${STATUS_OPTIONS.map(s => `<option ${s===(c.status||"")?"selected":""}>${s}</option>`).join("")}
+            </select>
+            <button class="save-btn" id="save-${c._id}">Save</button>
+          </td>
+        </tr>
+      `;
+    }
+
+    async function updateStatus(id, status) {
+      try {
+        const res = await fetch(`${API}/update/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Update failed");
+
+        alert("Status updated. User notified by email if configured.");
+        await load();
+      } catch (e) {
+        console.error(e);
+        alert("Error updating status");
+      }
+    }
+
+    function escapeHTML(str) {
+      return String(str).replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[s]));
+    }
+   
+     if (res.ok && data.success) {
+        localStorage.setItem("adminToken", data.token); // save JWT
+        window.location.href = "admin.html";
+      }
+  
+  // Access control: only allow admin
+  if (localStorage.getItem("isAdmin") !== "true") {
+    alert("Access denied! Please login as admin.");
+    window.location.href = "login.html"; // redirect to login
+  }
+
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>ResolveIt - Register Complaint</title>
+</head>
+<body>
+    <header>
+        <h1>Register Your Complaint</h1>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="register.html">Register Complaint</a></li>
+                <li><a href="features.html">Features</a></li>
+                <li><a href="track.html">Track Status</a></li>
+                <li><a href="office-select.html">Upload Application</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section id="complaint-form">
+        <h2>Register Your Complaint</h2>
+        <br>
+        <form id="complaintForm">
+            <div class="form-group">
+                <label for="name">Your Name:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="department">Department:</label>
+                <select id="department" name="department" required>
+                    <option value="">Department</option>
+                    <option value="Technical">Technical</option>
+                    <option value="Business">Business</option>
+                    <option value="Pharmacy">Pharmacy</option>
+                    <option value="Law">Law</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="category">Complaint Category:</label>
+                <select id="category" name="category" required>
+                    <option value="">Select Category</option>
+                    <option value="Grading Issues">Grading Issues</option>
+                    <option value="Course Content Issues">Course Content Issues</option>
+                    <option value="Faculty Issues">Faculty Issues</option>
+                    <option value="Wi-Fi">Wi-Fi</option>
+                    <option value="Hostel">Hostel</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" name="description" rows="5" required></textarea>
+            </div>
+
+            <button type="submit" class="submit-button">Submit Complaint</button>
+            <br>
+            <br>
+            
+        </form>
+          <script>
+    document.getElementById('complaintForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData.entries());
+
+      
+
+      const res = await fetch('http://localhost:5001/api/complaints/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+     const result = await res.json();
+    alert(result.message || 'Complaint submitted successfully!');
+
+    if(res.ok) {
+      e.target.reset();  // clear form
+      loadComplaints();  // reload complaints list
+    }
+    });
+
+  // get all complaints
+
+    fetch('http://localhost:5001/api/complaints')
+      .then(res => res.json())
+      .then(data => {
+        const list = document.getElementById('complaintList');
+        data.forEach(c => {
+          const item = document.createElement('li');
+          item.innerText = `${c.date.slice(0,10)} | ${c.name} (${c.category}): ${c.description}`;
+          list.appendChild(item);
+        });
+      });
+  
+
+  </script>
+    </section>
+
+</body>
+</html>
